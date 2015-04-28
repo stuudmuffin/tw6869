@@ -5,6 +5,7 @@
  *
  */
 
+#include <linux/vmalloc.h>
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>

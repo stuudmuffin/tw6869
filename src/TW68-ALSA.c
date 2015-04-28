@@ -17,6 +17,7 @@
  *  Thanks to yiliang for variable audio packet length and more audio
  *  formats support.
  */
+#include <linux/vmalloc.h>
 #include <linux/module.h>
 #include <sound/core.h>
 #include <sound/control.h>
