@@ -1,5 +1,4 @@
 /*
- *
  * v4l2 device driver for TW6868 based CVBS PCIe cards
  *
  * (c) 2011,2012 Simon Xu @ Intersil
@@ -8,20 +7,9 @@
 
 #include <linux/version.h>
 #include <linux/pci.h>
-#include <linux/i2c.h>
-#include <linux/videodev2.h>
-#include <linux/kdev_t.h>
-#include <linux/input.h>
-#include <linux/notifier.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
-
-#include <asm/io.h>
-#include <linux/kthread.h>
-#include <linux/highmem.h>
-#include <linux/freezer.h>
-
 #include <media/videobuf-vmalloc.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -29,20 +17,10 @@
 #include <media/tuner.h>
 #include <media/videobuf-dma-sg.h>
 #include <sound/core.h>
-#include <sound/pcm.h>
 
 #define TW68_VERSION_CODE KERNEL_VERSION(2, 3, 1)
 
 #define UNSET (-1U)
-
-enum TW68_tvaudio_mode {
-	TVAUDIO_FM_MONO = 1,
-	TVAUDIO_FM_BG_STEREO = 2,
-	TVAUDIO_FM_SAT_STEREO = 3,
-	TVAUDIO_FM_K_STEREO = 4,
-	TVAUDIO_NICAM_AM = 5,
-	TVAUDIO_NICAM_FM = 6,
-};
 
 enum TW68_audio_in {
 	TV = 1,
@@ -51,10 +29,6 @@ enum TW68_audio_in {
 	LINE3 = 4,
 	LINE4 = 5,
 	LINE2_LEFT,
-};
-
-enum TW68_video_out {
-	CCIR656 = 1,
 };
 
 struct TW68_tvnorm {
@@ -80,14 +54,6 @@ struct TW68_tvnorm {
 	unsigned int vbi_v_start_1;
 };
 
-struct TW68_tvaudio {
-	char *name;
-	v4l2_std_id std;
-	enum TW68_tvaudio_mode mode;
-	int carr1;
-	int carr2;
-};
-
 struct TW68_format {
 	char *name;
 	unsigned int fourcc;
@@ -100,7 +66,6 @@ struct TW68_format {
 	unsigned int yuv:1;
 	unsigned int planar:1;
 	unsigned int uvswap:1;
-
 };
 
 /* ----------------------------------------------------------- */
@@ -119,12 +84,6 @@ struct TW68_format {
 #define NTSC_default_height 480
 
 /* ----------------------------------------------------------- */
-/* Since we support 2 remote types, lets tell them apart       */
-
-#define TW68_REMOTE_GPIO  1
-#define TW68_REMOTE_I2C   2
-
-/* ----------------------------------------------------------- */
 /* Video Output Port Register Initialization Options           */
 
 #define SET_T_CODE_POLARITY_NON_INVERTED	(1 << 0)
@@ -136,8 +95,6 @@ struct TW68_input {
 	char *name;
 	unsigned int vmux;
 	enum TW68_audio_in amux;
-	unsigned int gpio;
-	unsigned int tv:1;
 };
 
 struct TW68_board {
@@ -145,27 +102,16 @@ struct TW68_board {
 	unsigned int audio_clock;
 
 	/* input switching */
-	unsigned int gpiomask;
 	struct TW68_input inputs[TW68_INPUT_MAX];
-	struct TW68_input radio;
-	struct TW68_input mute;
 
 	/* i2c chip info */
+
 	unsigned int tuner_type;
 	unsigned int radio_type;
 	unsigned char tuner_addr;
 	unsigned char radio_addr;
-	unsigned char empress_addr;
-	unsigned char rds_addr;
-	unsigned int tuner_config;
-
-	/* peripheral I/O */
-	enum TW68_video_out video_out;
-
-	unsigned int vid_port_opts;
 };
 
-#define card(dev)             (TW68_boards[dev->board])
 #define card_in(dev,n)        (TW68_boards[dev->board].inputs[n])
 
 /* ----------------------------------------------------------- */
@@ -221,9 +167,9 @@ struct TW68_dmaqueue {
 	struct list_head active;
 	struct list_head queued;
 	struct timer_list timeout;
-	unsigned int DMA_nCH;	/// 
+	unsigned int DMA_nCH;
 	unsigned int FieldPB;	/// Top Bottom status, field copy order;
-	unsigned int FCN;	/// 
+	unsigned int FCN;
 	struct timer_list restarter;
 };
 
@@ -254,6 +200,7 @@ struct TW68_fh {
 	struct TW68_pgtable pt_vbi;
 };
 
+#if 0 // GN: unused
 /* dmasound dsp status */
 struct TW68_dmasound {
 	struct mutex lock;
@@ -289,6 +236,7 @@ struct DMA_Descriptor {
 	u32 control;
 	u32 address;
 };
+#endif // GN:
 
 /**
  * struct dma_region - large non-contiguous DMA buffer
@@ -346,7 +294,6 @@ struct TW68_dev {
 
 	/* various device info */
 	unsigned int video_opened;
-
 	int video_DMA_1st_started;
 	int err_times;		/* DMA errors counter */
 	unsigned int vfd_DMA_num[9];
@@ -361,19 +308,12 @@ struct TW68_dev {
 	struct dma_mem BDbuf[8][4];
 	struct video_device *radio_dev;
 	struct video_device *vbi_dev;
-	struct TW68_dmasound dmasound;
 
 	/// DMA smart control
 	unsigned int videoDMA_ID;	/* DMA channels that should be active*/
 	unsigned int videoCap_ID;	/* DMA channels that are active */
 	unsigned int videoRS_ID;	/* DMA channels to reset */
 	unsigned int videoDMA_run[8];	/* wtf is this for? */
-
-	struct ringbuf {
-		int rxhead, rxtail;
-		int PB_REG[RINGSIZE];
-		int ST_REG[RINGSIZE];
-	} DMA_PB;
 
 	u64 errlog[9];		/* latest errors jiffies */
 
@@ -392,7 +332,6 @@ struct TW68_dev {
 
 	/* config info */
 	unsigned int board;
-	unsigned int tuner_type;
 
 	/* video overlay */
 	struct v4l2_framebuffer ovbuf;
@@ -411,7 +350,7 @@ struct TW68_dev {
 	struct TW68_tvnorm *tvnorm;	/* video */
 	struct TW68_tvnorm *tvnormf[9];	/* video */
 	unsigned int PAL50[9];
-	struct TW68_tvaudio *tvaudio;
+
 	unsigned int ctl_input;
 	int ctl_bright;
 	int ctl_contrast;
@@ -421,7 +360,7 @@ struct TW68_dev {
 	int ctl_mute;		/* audio */
 	int ctl_volume;
 	int ctl_invert;		/* private */
-	int ctl_mirror;
+//	int ctl_mirror;
 	int ctl_y_odd;
 	int ctl_y_even;
 	int ctl_automute;
@@ -477,7 +416,6 @@ int videoDMA_pgtable_alloc(struct pci_dev *pci, struct TW68_pgtable *pt);
 
 int AudioDMA_PB_alloc(struct pci_dev *pci, struct TW68_pgtable *pt);
 
-/// struct pci_dev *pci,  TW68
 int _pgtable_build(struct TW68_pgtable *pt,
 		   struct scatterlist *list,
 		   unsigned int length,
@@ -504,21 +442,12 @@ void TW68_buffer_next(struct TW68_dev *dev, struct TW68_dmaqueue *q);
 int TW68_buffer_requeue(struct TW68_dev *dev, struct TW68_dmaqueue *q);
 
 void DecoderResize(struct TW68_dev *dev, int nId, int H, int W);
-
-void Field_SG_Mapping(struct TW68_dev *dev, int field_PB);
-
 void Fixed_SG_Mapping(struct TW68_dev *dev, int nDMA_channel, int Frame_size);
 void BFDMA_setup(struct TW68_dev *dev, int nDMA_channel, int H, int W);
-
-int Field_Copy(struct TW68_dev *dev, int nDMA_channel, int field_PB);
 
 int BF_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB);
 
 int QF_Field_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB);
-
-void DMAstarter(unsigned long data);
-
-void RestartDMA(unsigned long data);
 
 void resync(unsigned long data);
 
@@ -538,8 +467,6 @@ extern int (*TW68_dmasound_init) (struct TW68_dev * dev);
 
 extern int (*TW68_dmasound_exit) (struct TW68_dev * dev);
 
-u64 GetDelay(struct TW68_dev *dev, int no);
-
 /* ----------------------------------------------------------- */
 extern struct TW68_board TW68_boards[];
 
@@ -547,12 +474,6 @@ extern const unsigned int TW68_bcount;
 
 extern struct pci_device_id TW68_pci_tbl[];
 
-/* ----------------------------------------------------------- */
-/* TW68-i2c.c                        */
-
-int TW68_i2c_register(struct TW68_dev *dev);
-
-int TW68_i2c_unregister(struct TW68_dev *dev);
 
 /* ----------------------------------------------------------- */
 /* TW68-video.c                      */
@@ -560,8 +481,6 @@ int TW68_i2c_unregister(struct TW68_dev *dev);
 extern unsigned int video_debug;
 
 extern struct video_device TW68_video_template;
-
-//extern struct video_device TW68_radio_template;
 
 /* ----------------------------------------------------------- */
 /* TW68-alsa.c                       */
@@ -572,17 +491,7 @@ extern int TW68_alsa_free(struct TW68_dev *dev);
 
 extern void TW68_alsa_irq(struct TW68_dev *dev, u32 dma_status, u32 pb_status);
 
-//extern int  TW68_alsa_resetdma(struct TW68_chip *chip, u32 dma_cmd);
-
 /* ----------------------------------------------------------- */
-/* TW68-audio.c                       */
-/* Audio */
-extern int TW68_audio_create(struct TW68_dev *dev);
-
-extern int TW68_audio_free(struct TW68_dev *dev);
-
-extern void TW68_audio_irq(struct TW68_dev *dev, u32 dma_status, u32 pb_status);
-
 int TW68_s_ctrl_internal(struct TW68_dev *dev, struct TW68_fh *fh,
 			 struct v4l2_control *c);
 
@@ -609,31 +518,3 @@ int buffer_setup(struct videobuf_queue *q, unsigned int *count,
 
 int buffer_setup_QF(struct videobuf_queue *q, unsigned int *count,
 		    unsigned int *size);
-
-/* TW68-tvaudio.c                    */
-
-int TW68_tvaudio_rx2mode(u32 rx);
-
-void TW68_tvaudio_setmute(struct TW68_dev *dev);
-
-void TW68_tvaudio_setinput(struct TW68_dev *dev, struct TW68_input *in);
-
-void TW68_tvaudio_setvolume(struct TW68_dev *dev, int level);
-
-int TW68_tvaudio_getstereo(struct TW68_dev *dev);
-
-void TW68_tvaudio_init(struct TW68_dev *dev);
-
-int TW68_tvaudio_init2(struct TW68_dev *dev);
-
-int TW68_tvaudio_fini(struct TW68_dev *dev);
-
-int TW68_tvaudio_do_scan(struct TW68_dev *dev);
-
-/* ----------------------------------------------------------- */
-
-extern const struct file_operations TW68_dsp_fops;
-
-extern const struct file_operations TW68_mixer_fops;
-
-
