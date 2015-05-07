@@ -158,20 +158,8 @@ int (*TW68_dmasound_exit) (struct TW68_dev * dev);
 #define dprintk(fmt, arg...)	if (core_debug) \
 	printk(KERN_DEBUG "%s/core: " fmt, dev->name , ## arg)
 
-#if 0
-// does not appear to be used
-void tw68v_set_framerate(struct TW68_dev *dev, u32 ch, u32 n)
-{
-	if (n >= 0 && n < 6 && ch >= 0 && ch < 8)
-		reg_writel(DROP_FIELD_REG0 + ch, video_framerate[n][0]);	// 30 FPS
-	dprintk
-	    ("****    tw68v_set_framerate: ch Id %d   n:%d  %d FPS \n ",
-	     ch, n, video_framerate[n][1]);
-}
-#endif
-
 /* ------------------------------------------------------------------ */
-
+/*
 void dma_field_init(struct dma_region *dma)
 {
 	dma->kvirt = NULL;
@@ -180,7 +168,7 @@ void dma_field_init(struct dma_region *dma)
 	dma->n_dma_pages = 0;
 	dma->sglist = NULL;
 }
-
+*/
 /**
  * dma_region_free - unmap and free the buffer
  */
@@ -272,6 +260,7 @@ int TW68_buffer_pages(int size)
 /* calc max # of buffers from size (must not exceed the 4MB virtual
  * address space per DMA channel) 
  */
+#if 0 
 int TW68_buffer_count(unsigned int size, unsigned int count)
 {
 	unsigned int maxcount;
@@ -282,7 +271,7 @@ int TW68_buffer_count(unsigned int size, unsigned int count)
 
 	return count;
 }
-
+#endif
 int TW68_buffer_startpage(struct TW68_buf *buf)
 {
 	unsigned long pages, n, pgn;
@@ -291,7 +280,7 @@ int TW68_buffer_startpage(struct TW68_buf *buf)
 	pgn = pages * n;
 	return pgn;
 }
-
+#if 0
 unsigned long TW68_buffer_base(struct TW68_buf *buf)
 {
 	unsigned long base0, base;
@@ -302,14 +291,13 @@ unsigned long TW68_buffer_base(struct TW68_buf *buf)
 
 	return base;
 }
-
+#endif
 /* ------------------------------------------------------------------ */
 
 int AudioDMA_PB_alloc(struct pci_dev *pci, struct TW68_pgtable *pt)
 {
 	dma_addr_t dma_addr;
 	int audio_ch;
-	//__le32 *clean; 
 	__le32 *pdmaP, *pdmaB;
 	__le32 *AudioPages;
 
@@ -377,7 +365,6 @@ int TW68_buffer_queue(struct TW68_dev *dev,
 	}
 
 	return 0;
-
 }
 
 /* ------------------------------------------------------------------ */
@@ -389,7 +376,7 @@ int TW68_buffer_queue(struct TW68_dev *dev,
  * To accomplish this generality, callbacks are used whenever some
  * module-specific test or action is required.
  */
-
+#if 0
 /* resends a current buffer in queue after resume */
 int TW68_buffer_requeue(struct TW68_dev *dev, struct TW68_dmaqueue *q)
 {
@@ -421,19 +408,19 @@ int TW68_buffer_requeue(struct TW68_dev *dev, struct TW68_dmaqueue *q)
 
 	}
 }
-
+#endif 
 void TW68_buffer_finish(struct TW68_dev *dev,
 			struct TW68_dmaqueue *q, unsigned int state)
 {
 
 	if (q->dev != dev)
 		return;
+
 	q->curr->vb.state = state;
 	do_gettimeofday(&q->curr->vb.ts);
 
 	wake_up(&q->curr->vb.done);
 	q->curr = NULL;
-
 }
 
 void TW68_buffer_next(struct TW68_dev *dev, struct TW68_dmaqueue *q)
@@ -446,6 +433,7 @@ void TW68_buffer_next(struct TW68_dev *dev, struct TW68_dmaqueue *q)
 		buf = list_entry(q->queued.next, struct TW68_buf, vb.queue);
 
 		list_del(&buf->vb.queue);
+
 		if (!list_empty(&q->queued))
 			next =
 			    list_entry(q->queued.next, struct TW68_buf,
@@ -460,7 +448,7 @@ void TW68_buffer_next(struct TW68_dev *dev, struct TW68_dmaqueue *q)
 		del_timer(&q->timeout);
 	}
 }
-
+#if 0
 void Field_SG_Mapping(struct TW68_dev *dev, int field_PB)	//    0 1
 {
 	struct TW68_dmaqueue *q;
@@ -474,6 +462,7 @@ void Field_SG_Mapping(struct TW68_dev *dev, int field_PB)	//    0 1
 	u32 m_NextFrameStartIdx = 0;	//128 *nId;
 	struct videobuf_dmabuf *dma;
 	struct scatterlist *list;
+
 	q = &dev->video_q;
 
 	if (!list_empty(&q->queued)) {
@@ -572,9 +561,7 @@ void Field_SG_Mapping(struct TW68_dev *dev, int field_PB)	//    0 1
 					ptr++;	/// pointing to the Address dword
 
 				nbytes += list->length;
-
 			}
-
 		}
 	}
 	/* else: nothing to do -- just stop DMA */
@@ -643,7 +630,6 @@ void Fixed_SG_Mapping(struct TW68_dev *dev, int nDMA_channel, int Frame_size)	//
 					sglist->offset);	/// setup page dma address
 
 			nbytes += sglist->length;
-
 		}
 	}
 
@@ -677,7 +663,7 @@ void Fixed_SG_Mapping(struct TW68_dev *dev, int nDMA_channel, int Frame_size)	//
 	}
 
 }
-
+#endif
 void BFDMA_setup(struct TW68_dev *dev, int nDMA_channel, int H, int W)	//    Field0   P B    Field1  P B     WidthHightPitch
 {
 	u32 regDW, dwV, dn;
@@ -698,18 +684,18 @@ void BFDMA_setup(struct TW68_dev *dev, int nDMA_channel, int H, int W)	//    Fie
 
 	regDW = reg_readl(PHASE_REF_CONFIG);
 	dn = (nDMA_channel << 1) + 0x10;
-
+// GN: USE_FIELD_MODE ?
 	dwV = (0x2 << dn);
 
 	regDW |= dwV;
 	reg_writel(PHASE_REF_CONFIG, regDW);
 	dwV = reg_readl(PHASE_REF_CONFIG);
 }
-
+#if 0
 int Field_Copy(struct TW68_dev *dev, int nDMA_channel, int field_PB)
 {
 	struct TW68_dmaqueue *q;
-	struct TW68_buf *buf = NULL;	//,*next = NULL;
+	struct TW68_buf *buf = NULL;
 	int Hmax, Wmax, h, pos, pitch;
 
 	struct dma_region *Field_P;
@@ -722,6 +708,7 @@ int Field_Copy(struct TW68_dev *dev, int nDMA_channel, int field_PB)
 	// fill P field half frame SG mapping entries
 	Field_P = &dev->Field_P[nDMA_channel];
 	Field_B = &dev->Field_B[nDMA_channel];
+
 	if (field_PB)
 		srcbuf = Field_B->kvirt;
 	else
@@ -749,13 +736,12 @@ int Field_Copy(struct TW68_dev *dev, int nDMA_channel, int field_PB)
 	}
 	return 1;
 }
-
+#endif
 int BF_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 {
 	struct TW68_dmaqueue *q;
 	struct TW68_buf *buf = NULL;	//,*next = NULL;
-	int n, Hmax, Wmax, pos, pitch;	// , h
-
+	int n, Hmax, Wmax, pos, pitch;
 	int nId = nDMA_channel + 1;
 
 	void *vbuf, *srcbuf;	// = videobuf_to_vmalloc(&buf->vb);
@@ -764,8 +750,10 @@ int BF_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 	// fill P field half frame SG mapping entries
 	pos = 0;
 	n = 0;
+
 	if (Fn)
 		n = 2;
+
 	if (PB)
 		n++;
 
@@ -775,13 +763,13 @@ int BF_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 
 	if (q->curr) {
 		buf = q->curr;
-
 		vbuf = videobuf_to_vmalloc(&buf->vb);
 
 		Hmax = buf->vb.height / 2;
 		Wmax = buf->vb.width;
 
 		pitch = Wmax * buf->fmt->depth / 8;
+
 		if (Fn)
 			pos = pitch;
 
@@ -795,9 +783,8 @@ int BF_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 int QF_Field_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 {
 	struct TW68_dmaqueue *q;
-	struct TW68_buf *buf = NULL;	///,*next = NULL;
+	struct TW68_buf *buf = NULL;
 	int Hmax, Wmax, h, n, pos, pitch, stride;
-
 	int nId = 0;
 
 	void *vbuf, *srcbuf;	// = videobuf_to_vmalloc(&buf->vb);
@@ -835,13 +822,11 @@ int QF_Field_Copy(struct TW68_dev *dev, int nDMA_channel, u32 Fn, u32 PB)
 			memcpy(vbuf + pos, srcbuf, stride);
 			pos += pitch;
 			srcbuf += stride;
-
 		}
 	} else {
 		return 0;
 	}
 	return 1;
-
 }
 
 void DecoderResize(struct TW68_dev *dev, int nId, int nHeight, int nWidth)
@@ -851,7 +836,6 @@ void DecoderResize(struct TW68_dev *dev, int nId, int nHeight, int nWidth)
 	if (nId >= 8) {
 		return;
 	}
-
 
 	// only for internal 4     HDelay VDelay   etc
 	nReg = 0xe7;		//  blue back color
@@ -879,7 +863,6 @@ void DecoderResize(struct TW68_dev *dev, int nId, int nHeight, int nWidth)
 		} else {
 			nAddr = HDELAY0 + ((nId - 4) * 0x10) + 0x100;
 			reg_writel(nAddr, regDW);
-
 		}
 	} else {
 		//VDelay
@@ -979,14 +962,12 @@ void DecoderResize(struct TW68_dev *dev, int nId, int nHeight, int nWidth)
 	nVal = (4 & 0x1F) | (((nWidth - 12) & 0x3FF) << 5) | (nVal << 15);
 
 	reg_writel(SHSCALER_REG0 + nId, nVal);
-
 }
 
 void resync(unsigned long data)
 {
 	struct TW68_dev *dev = (struct TW68_dev *)data;
 	u32 dwRegE, dwRegF, k, m, mask;
-	//unsigned long flags;
 	unsigned long now = jiffies;
 
 	mod_timer(&dev->delay_resync, jiffies + msecs_to_jiffies(50));
@@ -1010,6 +991,7 @@ void resync(unsigned long data)
 	if ((dev->videoDMA_ID == 0) && dev->videoRS_ID) {
 		dev->videoDMA_ID = dev->videoRS_ID;
 		dwRegE = dev->videoDMA_ID;
+
 		/* enable DMA channels */
 		reg_writel(DMA_CHANNEL_ENABLE, dwRegE);
 		dwRegE = reg_readl(DMA_CHANNEL_ENABLE);
@@ -1021,28 +1003,6 @@ void resync(unsigned long data)
 
 		dev->videoRS_ID = 0;
 	}
-
-}
-
-// special treatment for intel MB
-u64 GetDelay(struct TW68_dev *dev, int eno)
-{
-	u64 delay, last, now, pause;
-	last = 0;
-	pause = 40;
-
-	now = jiffies;
-	if (last > now)
-		delay = last;
-	else
-		delay = jiffies;
-
-	if ((delay == jiffies) && ((last + msecs_to_jiffies(pause)) > delay))
-		delay = last + msecs_to_jiffies(pause);
-
-	delay += msecs_to_jiffies(pause);
-
-	return delay;
 }
 
 void TW68_buffer_timeout(unsigned long data)
@@ -1125,7 +1085,6 @@ int stop_video_DMA(struct TW68_dev *dev, unsigned int DMA_nCH)
 	if (dev->videoCap_ID == 0) {
 		reg_writel(DMA_CMD, 0);
 		reg_writel(DMA_CHANNEL_ENABLE, 0);
-
 	}
 
 	return 0;
@@ -1153,7 +1112,6 @@ int VideoDecoderDetect(struct TW68_dev *dev, unsigned int DMA_nCH)
 		return 50;
 	} else {
 		return 60;
-
 	}
 }
 
@@ -1180,17 +1138,15 @@ void video_tasklet(unsigned long device)
 			}
 		}
 	}
-
 }
 
 static irqreturn_t TW68_irq(int irq, void *dev_id)	/// hardware dev id for the ISR
 {
 	struct TW68_dev *dev = (struct TW68_dev *)dev_id;
-	unsigned long flags, audio_ch, k, eno, handled;
+	unsigned long flags, k, eno, handled;
 	u32 dwRegST, dwRegER, dwRegPB, dwRegE, dwRegF, dwRegVP, dwErrBit;
 	static u32 lastPB = 0;
 
-	audio_ch = 1;
 	handled = 1;
 
 	spin_lock_irqsave(&dev->slock, flags);
@@ -1206,6 +1162,7 @@ static irqreturn_t TW68_irq(int irq, void *dev_id)	/// hardware dev id for the I
 	if ((dwRegER & DMA_FIFO_OVFERR_MASK) && dev->video_DMA_1st_started
 	    && dev->err_times < 9) {
 		dev->video_DMA_1st_started--;
+
 		if (dev->video_DMA_1st_started < 0)
 			dev->video_DMA_1st_started = 0;
 
@@ -1278,10 +1235,10 @@ static irqreturn_t TW68_irq(int irq, void *dev_id)	/// hardware dev id for the I
 				dwRegF |= dwRegE;
 				reg_writel(DMA_CMD, dwRegF);
 				dwRegF = reg_readl(DMA_CMD);
-
 			}
 		}
 	}
+
 	if (!dwRegER && !dwRegST)	// skip the  interrupt  conflicts
 	{
 		if (dev->videoCap_ID == 0) {
@@ -1425,10 +1382,7 @@ static int TW68_hwinit1(struct TW68_dev *dev)
 		reg_writel(DMA_CH8_CONFIG_P + audio_ch * 2, dmaP);
 		/// Audio B = P+1
 		reg_writel(DMA_CH8_CONFIG_B + audio_ch * 2, dmaB);
-
 	}
-
-
 
 
 	reg_writel((DMA_PAGE_TABLE0_ADDR), dev->m_Page0.dma);	//P DMA page table
@@ -1501,6 +1455,7 @@ static int vdev_init(struct TW68_dev *dev, struct video_device *template,
 			return k;
 
 		}
+
 		*(vfdev[k]) = *template;
 
 		vfdev[k]->v4l2_dev = &dev->v4l2_dev;
@@ -1516,7 +1471,6 @@ static int vdev_init(struct TW68_dev *dev, struct video_device *template,
 		    video_register_device(dev->video_device[k],
 					  VFL_TYPE_GRABBER, video_nr[dev->nr]);
 		dev->vfd_DMA_num[k] = vfdev[k]->num;
-
 	}
 
 	return k;
@@ -1525,9 +1479,9 @@ static int vdev_init(struct TW68_dev *dev, struct video_device *template,
 static void TW68_unregister_video(struct TW68_dev *dev)
 {
 	int k;
+
 	for (k = 1; k < 9; k++)	/// 0 + 4
 	{
-
 		if (dev->video_device[k])
 			if (-1 != dev->video_device[k]->minor) {
 				video_unregister_device(dev->video_device[k]);
@@ -1536,7 +1490,6 @@ static void TW68_unregister_video(struct TW68_dev *dev)
 				       "video_unregister_device(dev->video_dev %d  \n",
 				       k);
 			}
-
 	}
 }
 
@@ -1550,10 +1503,12 @@ static int TW68_initdev(struct pci_dev *pci_dev,
 		return -ENOMEM;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+
 	if (NULL == dev)
 		return -ENOMEM;
 
 	err = v4l2_device_register(&pci_dev->dev, &dev->v4l2_dev);
+
 	if (err)
 		goto fail0;
 
@@ -1627,6 +1582,7 @@ static int TW68_initdev(struct pci_dev *pci_dev,
 		       (unsigned long long)pci_resource_start(pci_dev, 0));
 		goto fail1;
 	}
+
 	// no cache
 	dev->lmmio =
 	    ioremap_nocache(pci_resource_start(pci_dev, 0),
@@ -1703,7 +1659,6 @@ static void TW68_finidev(struct pci_dev *pci_dev)
 	       dev->name, dev->video_device[1]->num);
 
 	/* shutdown hardware */
-
 	TW68_hwfini(dev);
 
 	/* shutdown subsystems */
