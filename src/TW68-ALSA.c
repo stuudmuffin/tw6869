@@ -17,8 +17,8 @@
  *  Thanks to yiliang for variable audio packet length and more audio
  *  formats support.
  */
-#include <linux/vmalloc.h>
 #include <linux/module.h>
+#include <linux/vmalloc.h>
 #include <sound/core.h>
 #include <sound/control.h>
 #include <sound/pcm.h>
@@ -514,7 +514,7 @@ int TW68_alsa_create(struct TW68_dev *dev)
 	if (TW68_audio_nPCM > (SNDRV_CARDS - 2))
 		return -ENODEV;
 
-	err = snd_card_create(SNDRV_DEFAULT_IDX1, "TW68 SoundCard", THIS_MODULE,
+	err = snd_card_new(NULL, SNDRV_DEFAULT_IDX1, "TW68 SoundCard", THIS_MODULE,
 			      sizeof(snd_card_TW68_t), &card);
 	if (err < 0)
 		return err;
