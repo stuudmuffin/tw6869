@@ -1747,7 +1747,7 @@ static const struct v4l2_file_operations video_fops = {
 	.read = video_read,
 	.poll = video_poll,
 	.mmap = video_mmap,
-	.ioctl = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 };
 
 static const struct v4l2_ioctl_ops video_ioctl_ops = {
