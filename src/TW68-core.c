@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm.h>
+#include <linux/vmalloc.h>
 
 #include "TW68.h"
 #include "TW68_defines.h"
@@ -1460,7 +1461,7 @@ static int vdev_init(struct TW68_dev *dev, struct video_device *template,
 
 		vfdev[k]->v4l2_dev = &dev->v4l2_dev;
 		vfdev[k]->release = video_device_release;
-		vfdev[k]->debug = video_debug;
+		//vfdev[k]->debug = video_debug;
 		snprintf(vfdev[k]->name, sizeof(vfdev[k]->name), "%s %s (%s22)",
 			 dev->name, type, TW68_boards[dev->board].name);
 
@@ -1559,7 +1560,8 @@ static int TW68_initdev(struct pci_dev *pci_dev,
 	pci_set_master(pci_dev);
 	pci_set_drvdata(pci_dev, &(dev->v4l2_dev));
 
-	if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
+	//if (!pci_dma_supported(pci_dev, DMA_BIT_MASK(32))) {
+	if (!dma_supported(pci_dev == NULL ? NULL : &pci_dev->dev, DMA_BIT_MASK(32))) {
 		printk("%s: Oops: no 32bit PCI DMA ???\n", dev->name);
 		err = -EIO;
 		goto fail1;
